@@ -1,0 +1,18 @@
+---
+title: "Demonstration"
+author: "Sam Dunn"
+date: "August 20, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+R markdown is a powerful tool for generating reports, webpages, interactive tools, etc with embedded R code.  This document is an Rmarkdown document and is intended to demonstrate some of the potential opportunities of this technology for the Alliance for the Great Lakes Beach Litter Data
+
+We have two goals:
+
+*1 To generate an interactive web portal for finding and extracting beack litter cleanup data
+*2 To produce a predictive model for the type and abundance of beach litter for any given site
