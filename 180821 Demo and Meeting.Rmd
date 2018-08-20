@@ -16,3 +16,61 @@ We have two goals:
 
 *1 To generate an interactive web portal for finding and extracting beack litter cleanup data
 *2 To produce a predictive model for the type and abundance of beach litter for any given site
+
+
+The following data were collected by a former Master's Student for her work [citation here]  Here I will demonstrate a quick example of what sorts of interactivity is possible.
+```{r Data IMport}
+library(readxl)
+library(DT)
+library(lubridate)
+library(leaflet)
+library(ggplot2)
+beach_dat<-read_excel("Beachs_All_Data_14jan14.xlsx",sheet="North Ave")
+
+```
+ We imported data from a local .csv file, but we could draw from a URL just as easily.
+ 
+ Let's make a table first and then see if we need to do some cleaning.  The "datatables" function is great and is highly customizable.  First, let's subset a bit to get data we are most interested in.
+ 
+```{r}
+north_ave<-beach_dat[,c("Event Date",
+                        "Middle Latitude",
+                        "Middle Longitude",
+                        "Weight of Debris",
+                        "Number of Volunteers")]
+# now we need to clean up the weight column since it has both numeric and strings in it
+
+north_ave$`Weight of Debris`<-as.numeric(gsub("Lbs","",as.character(north_ave$`Weight of Debris`)))
+
+north_ave<-na.omit(north_ave)
+
+#lets also clean upt he date to just include the date and not the time
+
+north_ave$`Event Date`<-ymd(north_ave$`Event Date`)
+
+
+datatable(north_ave,
+          filter='top',
+          extensions='Buttons',
+          options = list(dom = 'Bfrtip',buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+  
+```
+ 
+We can customize this a great deal more!  It is a R wrapper for JavaScript so anything you can do in Java we can do here too!
+
+Okay, let's make a map of our site. The leaflet package in R is efficient and powerful
+
+
+```{r}
+weight_time<-ggplot(north_ave, aes(x=`Event Date`,y=`Number of Volunteers`))+geom_point()+geom_line()
+weight_time
+
+na_popup<-paste0("<b>","Mean Volunteers ","</b/>",mean(north_ave$`Number of Volunteers`,na.rm=T),"<br>",
+                 "<b>","Mean Weight of Debris ","</b/>",round(mean(north_ave$`Weight of Debris`,na.rm=T)),2)
+
+leaflet(north_ave) %>% 
+  addTiles() %>% 
+  addMarkers(~`Middle Longitude`,~`Middle Latitude`,popup=~na_popup)
+  
+```
+
