@@ -1,5 +1,5 @@
 ---
-title: "Demonstration"
+title: "Beach Litter Data Demonstration"
 author: "Sam Dunn"
 date: "August 20, 2018"
 output: html_document
@@ -14,10 +14,12 @@ R markdown is a powerful tool for generating reports, webpages, interactive tool
 
 We have two goals:
 
-*1 To generate an interactive web portal for finding and extracting beack litter cleanup data
-*2 To produce a predictive model for the type and abundance of beach litter for any given site
+1. To generate an interactive web portal for finding and extracting beack litter cleanup data
+
+2. To produce a predictive model for the type and abundance of beach litter for any given site
 
 
+## Data Import and Cleaning
 The following data were collected by a former Master's Student for her work [citation here]  Here I will demonstrate a quick example of what sorts of interactivity is possible.
 ```{r Data IMport}
 library(readxl)
@@ -30,6 +32,8 @@ beach_dat<-read_excel("Beachs_All_Data_14jan14.xlsx",sheet="North Ave")
 ```
  We imported data from a local .csv file, but we could draw from a URL just as easily.
  
+ 
+## Interactive Data Discovery Tables 
  Let's make a table first and then see if we need to do some cleaning.  The "datatables" function is great and is highly customizable.  First, let's subset a bit to get data we are most interested in.
  
 ```{r}
@@ -58,19 +62,30 @@ datatable(north_ave,
  
 We can customize this a great deal more!  It is a R wrapper for JavaScript so anything you can do in Java we can do here too!
 
-Okay, let's make a map of our site. The leaflet package in R is efficient and powerful
+
+## Maps
+Okay, let's make a map of our site. The leaflet package in R is efficient and powerful.  The popup table here is simply the means of the number of volunteers and weight of trash for the whole dataset.  This can be customized to whatever we like but requires a bit more effort.
 
 
-```{r}
+```{r Maps!}
 weight_time<-ggplot(north_ave, aes(x=`Event Date`,y=`Number of Volunteers`))+geom_point()+geom_line()
 weight_time
 
-na_popup<-paste0("<b>","Mean Volunteers ","</b/>",mean(north_ave$`Number of Volunteers`,na.rm=T),"<br>",
-                 "<b>","Mean Weight of Debris ","</b/>",round(mean(north_ave$`Weight of Debris`,na.rm=T)),2)
+na_popup<-paste0("<b>","Mean Volunteers ","</b/>",round(mean(north_ave$`Number of Volunteers`,na.rm=T),2),"<br>",
+                 "<b>","Mean Weight of Debris ","</b/>",round(mean(north_ave$`Weight of Debris`,na.rm=T)),2) #Here I manually assemble the html popup table using both html and R commands.  
 
 leaflet(north_ave) %>% 
   addTiles() %>% 
   addMarkers(~`Middle Longitude`,~`Middle Latitude`,popup=~na_popup)
   
+```
+
+
+Another potentil tool is mapview.  This is BRAND SPANKING NEW (August 16th!) and ah snot been fully de-bugged.  I gave it a try here.  It is designed to work within a relational database context which is not the same structure as what we have been using above.  That being said these beach cleanup data are perfect candidates for a relational database organization structure.
+```{r}
+library(mapview)
+data(breweries)
+mapview(breweries)
+
 ```
 
