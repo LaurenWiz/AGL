@@ -54,7 +54,7 @@ beach_dat<-beach_dat %>%
  Let's make a table first and then see if we need to do some cleaning.  The "datatables" function is great and is highly customizable.  First, let's subset a bit to get data we are most interested in.
  
 ```{r}
-demo<-beach_dat[,c("Event_Date","Beach",
+demo<-beach_dat[,c("Event_Date","Beach","County",
                         "Middle Latitude",
                         "Middle Longitude",
                         "Weight",
@@ -89,21 +89,23 @@ Okay, let's make a map of our site. The leaflet package in R is efficient and po
 weight_time<-ggplot(demo, aes(x=Event_Date,y=numVolunteers,group=Beach,color=Beach))+geom_point()+theme_classic()
 weight_time
 
+ggsave(plot=weight_time, file="test.svg",height=2,width=2,units="in")
+
 demo<-na.omit(demo)
 
 pop_up_data<-demo %>% 
-  group_by(Beach,Event_Date,numVolunteers,Weight,`Middle Longitude`,`Middle Latitude`) %>% 
+  group_by(Beach,numVolunteers,Weight,`Middle Longitude`,`Middle Latitude`) %>% 
   summarise(meanVolunteers=round(mean(numVolunteers,na.rm=T)),
             meanWeight=round(mean(Weight,na.rm=T)),
             numobs=n())
 
 
 
-leaflet(pop_up_data) %>% 
+leaflet() %>% 
   addTiles() %>% 
-  addMarkers(~`Middle Longitude`,~`Middle Latitude`,
-             popup=~htmlTable(data.frame(Event_Date,meanVolunteers,meanWeight)))
-  #I inserted an html table into the map for each pin ont he map.  The formatting needs a little tweakeing but the concept works!  
+  addMarkers(data=pop_up_data,~`Middle Longitude`,~`Middle Latitude`,
+             popup=~htmlTable(data.frame(meanVolunteers,meanWeight)))
+  #I inserted an html table into the map for each pin ont he map.  The formatting needs a little tweakeing but the concept works!  ~htmlTable(data.frame(Event_Date,meanVolunteers,meanWeight)
 ```
 
 
