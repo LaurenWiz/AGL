@@ -1,0 +1,90 @@
+---
+title: "TensorFlow Model Dev"
+author: "Sam Dunn"
+date: "August 22, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tfestimators)
+library(tidyverse)
+library(ggplot2)
+```
+
+This document details the adaption of a tensor flow model to a snippet fo beach litter data.  TensorFlow is an advanced Machine Learning Program that cna be used in R or Python instances.  I chose it here because it is the current standard and has some powerful tools for future implementation of a family of models.
+
+## Code This Demo is Based On [https://www.edgarsdatalab.com/2017/10/22/intro-to-tensorflow-in-r/]
+
+library(tfestimators)
+library(tidyverse)
+library(titanic)
+
+cols <- feature_columns(
+  column_categorical_with_vocabulary_list("Sex", vocabulary_list = list("male", "female")),
+  column_categorical_with_vocabulary_list("Embarked", vocabulary_list = list("S", "C", "Q", "")),
+  column_numeric("Pclass")
+)
+model <- linear_classifier(feature_columns = cols)
+
+titanic_set <- titanic_train %>%
+  filter(!is.na(Age))
+
+glimpse(titanic_set)
+indices <- sample(1:nrow(titanic_set), size = 0.80 * nrow(titanic_set))
+train <- titanic_set[indices, ]
+test  <- titanic_set[-indices, ]
+titanic_input_fn <- function(data) {
+  input_fn(data, 
+           features = c("Sex",
+                        "Pclass",
+                        "Embarked"), 
+           response = "Survived")
+}
+
+train(model, titanic_input_fn(train))
+model_eval <- evaluate(model, titanic_input_fn(test))
+model_eval %>%
+  flatten() %>%
+  as_tibble() %>%
+  glimpse()
+
+tensorboard(model$estimator$model_dir, launch_browser = TRUE)
+
+model_predict <- predict(model, titanic_input_fn(test))
+tidy_model <- model_predict %>%
+  map(~ .x %>%
+        map(~.x[[1]]) %>%
+        flatten() %>% 
+        as_tibble()) %>%
+  bind_rows() %>%
+  bind_cols(test)
+
+tidy_model
+
+```{r  Data Import and Cleaning}
+ml_beach_dat<-read_excel("Beachs_All_Data_14jan14.xlsx",sheet="North Ave")
+ml_beach_dat<-ml_beach_dat %>% 
+  rename("Date"="Event Date",
+         "Beach"="Beach Name",
+         "Team"="Team Leader and Name",
+         "Weight"="Weight of Debris",
+         "numVolunteers"="Number of Volunteers",
+         "EPAid"="EPA Beach ID",
+         "Lat"="Middle Latitude",
+         "Long"="Middle Longitude",
+         "hours_Effort"="Time Spent (Hours)",
+         )
+
+#replace NA values in data with 0
+ml_beach_dat[is.na(ml_beach_dat)]<-0
+
+#convert to long format from wide
+long_dat<-ml_beach_dat %>% 
+  gather(.,key=Date,value=)
+
+```
+
+Okay, so in an ideal wolrd (and on another day) I will write a script to automatically change all column names to tidy equivalents.  I am debating whether I need to apply gather() to the different debris columns.  I did rename the factor columns because those will be needed for any filtering down the line. 
+
+Okay, model time!
