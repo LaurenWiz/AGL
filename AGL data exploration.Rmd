@@ -68,7 +68,7 @@ popup_tab$siteNames=NULL
 
 #basemap_df<-na.omit(basemap_df)
 
-overview_map<-leaflet(options=leafletOptions(maxZoom=10)) %>% 
+overview_map<-leaflet() %>% 
   addTiles() %>% 
   addMarkers(data=basemap_df,
              ~LongitudeCenter,
@@ -79,6 +79,6 @@ overview_map<-leaflet(options=leafletOptions(maxZoom=10)) %>%
   addMiniMap(width=100,height=100)
 
 overview_map
-
+#saveWidget(overiew_map,file="index.html")
 ```
 
