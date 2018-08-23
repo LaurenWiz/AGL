@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tfestimators)
 library(tidyverse)
 library(ggplot2)
+library(readxl)
 ```
 
 This document details the adaption of a tensor flow model to a snippet fo beach litter data.  TensorFlow is an advanced Machine Learning Program that cna be used in R or Python instances.  I chose it here because it is the current standard and has some powerful tools for future implementation of a family of models.
@@ -73,18 +74,103 @@ ml_beach_dat<-ml_beach_dat %>%
          "EPAid"="EPA Beach ID",
          "Lat"="Middle Latitude",
          "Long"="Middle Longitude",
-         "hours_Effort"="Time Spent (Hours)",
+         "hours_Effort"="Time Spent (Hours)"
          )
 
-#replace NA values in data with 0
-ml_beach_dat[is.na(ml_beach_dat)]<-0
 
-#convert to long format from wide
-long_dat<-ml_beach_dat %>% 
-  gather(.,key=Date,value=)
+
+#convert single Date column to Y, M ,D sow e cans ee if the time of year that cleanups ahppen is important
+ml_beach_dat<- ml_beach_dat %>% 
+  separate(Date,into=c("Year","Month","Day"),sep="-")
+
 
 ```
 
 Okay, so in an ideal wolrd (and on another day) I will write a script to automatically change all column names to tidy equivalents.  I am debating whether I need to apply gather() to the different debris columns.  I did rename the factor columns because those will be needed for any filtering down the line. 
 
-Okay, model time!
+Okay, model time!  The first we'll do is identify the *feature* columns that the model will be based on.  These are the predictors we will hope best explain our response variable.  To start with I have chosen year, a factor, total volunteer hours, and the number of volunteers.
+```{r Defining Feature Columns}
+
+ml_beach_dat$Year<-as.numeric(ml_beach_dat$Year)
+ml_beach_dat$Month<-as.numeric(ml_beach_dat$Month)
+ml_beach_dat$Day<-as.numeric(ml_beach_dat$Day)
+#TF requires factors
+ml_beach_dat$Weight<-as.numeric(gsub("Lbs","",as.character(ml_beach_dat$Weight)))
+ #we need to have an idea of what columns are likely going to be important BEFORE we design the model
+#replace NA values in data with 0
+ml_beach_dat[is.na(ml_beach_dat)]<-0
+
+cols <- feature_columns(
+  column_numeric("Year"),
+  column_numeric("Month"),
+  column_numeric("Day"),
+  column_numeric("hours_Effort"),
+  column_numeric("numVolunteers"),
+  column_numeric("Weight")
+)
+
+```
+
+
+No we need to divide the datset into training and evaluation sets.  We will train a model on roughly half fo the data (by row) and then see how well the model can predit the outcome observed ont he other half.  This process is what taes the longest because it requires fine-tuning what the feature columns are and the meothod by which they are used to train a model.  Unliekc lassical statistics, the tensorflow software does the assembly for us!
+```{r Define Train and Eval sets}
+row_indices<-sample(1:nrow(ml_beach_dat),
+                    size=0.2*nrow(ml_beach_dat))
+beach_train<-ml_beach_dat[row_indices,]
+beach_test<-ml_beach_dat[-row_indices,]
+
+
+model<-linear_regressor(feature_columns = cols) #linear classifieres are used to predict continuous outcomes from categoricala nd continuous feature cols.  linear regressos handle only continuoiurs.  other predictors are needed for different outcomes
+```
+
+
+Now we will define the model for TensorFlow by defining a model function.  This is much more simple than it sounds.  Essentially we are creating a function that requires the *data* and we identify the *features* from above as well as the *response* we are trying to predict.
+```{r}
+chi_beach_fn<-function(data){
+  input_fn(data,
+           features=c("Year",
+                      "hours_Effort",
+                      "numVolunteers",
+                      "Month",
+                      "Day",
+                      "Weight"),
+           response="Cigar tips")
+}
+```
+
+
+```{r}
+train(model,chi_beach_fn(beach_train))
+
+
+predictions_test<-predict(
+  model,
+  input_fn=chi_beach_fn(beach_test)
+)
+
+predictions_all<-predict(
+  model,
+  input_fn = chi_beach_fn(ml_beach_dat)
+)
+
+eval_test<-evaluate(
+  model,
+  input_fn=chi_beach_fn(beach_test)
+)
+
+eval_test %>% 
+  flatten() %>% 
+  as_tibble() %>% 
+  glimpse()
+
+eval_all<-evaluate(
+  model,
+  input_fn = chi_beach_fn(ml_beach_dat)
+)
+eval_all %>% 
+  flatten() %>% 
+  as_tibble() %>% 
+  glimpse()
+```
+
+
