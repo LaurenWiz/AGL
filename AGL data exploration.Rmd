@@ -1,0 +1,84 @@
+---
+title: "Full Dataset Exploration"
+author: "Sam Dunn"
+date: "August 23, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(leaflet)
+library(htmlwidgets)
+```
+
+```{r,warning=F, message=F}
+bl_df<-read_excel("AAB.xlsx")
+
+
+#convert single Date column to Y, M ,D sow e cans ee if the time of year that cleanups #ahppen is important
+bl_df<- bl_df %>% 
+  separate(EventDate,into=c("Year","Month","Day"),sep="-")
+
+bl_df$TrashWeight<-as.numeric(gsub("Lbs","",as.character(bl_df$TrashWeight)))
+
+bl_df[is.na(bl_df)]<-0
+#Convert NA to 0.
+```
+
+
+```{r Tidying the Data}
+site_df<-bl_df[,1:24] #Site specific data
+debris_df<-bl_df[,25:94] #Debris Data that eed to eb transformed into long form
+debris_df<-cbind(site_df$EventID,debris_df)
+debris_df<-rename(debris_df,"EventID"="site_df$EventID")
+
+long<-debris_df %>% 
+  gather(key=type,value=num,-EventID)
+
+tidy_debris<-left_join(site_df,long,by="EventID")
+```
+
+```{r Quick Map of Sites}
+basemap_df<-tidy_debris %>% 
+  select(SiteName,LatitudeCenter,LongitudeCenter,WaterbodyName,EventID) %>% 
+  unique()
+
+
+basemap_df<-basemap_df %>% 
+  mutate(LongitudeCenter=ifelse(LongitudeCenter==0,NA,LongitudeCenter)) %>% 
+  mutate(LatitudeCenter=ifelse(LatitudeCenter==0,NA,LatitudeCenter)) %>% 
+  drop_na()
+
+noevents<-basemap_df %>% 
+  group_by(SiteName) %>% 
+  tally(EventID)
+
+
+
+
+siteNames<-unique(basemap_df$SiteName)
+
+
+popup_tab<-cbind(siteNames,noevents)
+popup_tab$siteNames=NULL
+
+
+#basemap_df<-na.omit(basemap_df)
+
+overview_map<-leaflet(options=leafletOptions(maxZoom=10)) %>% 
+  addTiles() %>% 
+  addMarkers(data=basemap_df,
+             ~LongitudeCenter,
+             ~LatitudeCenter, 
+             popup=siteNames,
+             clusterOptions = markerClusterOptions()
+             )%>%
+  addMiniMap(width=100,height=100)
+
+overview_map
+
+```
+
