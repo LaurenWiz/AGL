@@ -39,6 +39,8 @@ long<-debris_df %>%
   gather(key=type,value=num,-EventID)
 
 tidy_debris<-left_join(site_df,long,by="EventID")
+
+beach_names<-unique(tidy_debris$SiteName)
 ```
 
 ```{r Quick Map of Sites}
@@ -76,7 +78,7 @@ overview_map<-leaflet() %>%
              popup=siteNames,
              clusterOptions = markerClusterOptions()
              )%>%
-  addMiniMap(width=100,height=100)
+  addMiniMap()
 
 overview_map
 #saveWidget(overiew_map,file="index.html")
