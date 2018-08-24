@@ -40,7 +40,7 @@ long<-debris_df %>%
 
 tidy_debris<-left_join(site_df,long,by="EventID")
 
-beach_names<-unique(tidy_debris$SiteName)
+saveRDS(tidy_debris,file="tidy_debris.Rds")
 ```
 
 ```{r Quick Map of Sites}

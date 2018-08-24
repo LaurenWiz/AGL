@@ -21,7 +21,8 @@ ui <- fluidPage(
    # dateRangeInput("Event_Date", strong("Date range"), start = "2007-01-01", end = "2017-07-31",
     #           min = "2007-01-01", max = "2017-07-31")
 
-demo_data<-tidy_debris
+demo_data<-readRDS("tidy_debris.Rds")
+beach_names<-unique(demo_data$SiteName)
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
@@ -30,9 +31,9 @@ server <- function(input, output) {
     data<-switch(input$Beach_Name,
                  demo_data[which(demo_data$SiteName==paste(input$Beach_Name)),])
     
-    ggplot(data,aes(x=Year,y=ActualParticipantCount))+
+    ggplot(data,aes(x=Year,y=ActualParticipantCount),group)+
              geom_point()+
-             geom_boxplot()+
+             geom_smooth(method="lm")+
              theme_classic()+
              labs(title=paste(input$Beach_Name),x="Year",y="Number of Participants")
   })
