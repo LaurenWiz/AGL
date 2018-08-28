@@ -1,0 +1,145 @@
+---
+title: "TF tutorial-Rstudio"
+author: "Sam Dunn"
+date: "August 28, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages("tfestimators")
+#install_tensorflow()
+library(tfestimators)
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(breakDown)
+library(broom)
+library(Hmisc)
+library(lubridate)
+library(hexbin)
+```
+
+```{r}
+bl_df<-readRDS("tidy_debris.Rdata")
+
+bl_df$num<-as.numeric(bl_df$num)
+
+bl_df_w<-bl_df %>% 
+  spread(type,num,fill=0,convert=T)
+
+tofix<-colnames(bl_df_w)
+#remove parentheses and other inappropriate column names
+tofix<-tofix %>% 
+  gsub("[()]","",.) %>% 
+  gsub("[[:space:]]","_",.) %>% 
+  gsub("[,]","_",.) %>% 
+  gsub("[&]","",.) %>% 
+  gsub("[.]","",.)
+colnames(bl_df_w)<-tofix
+
+bl_df_w$WaterbodyName<-as.factor(bl_df_w$WaterbodyName)
+bl_df_w$doy<-yday(bl_df_w$EventDate)
+```
+
+
+```{r}
+library(tfestimators)
+
+# return an input_fn for a given subset of data
+bl_df_w_input_fn <- function(data, num_epochs = 1) {
+  input_fn(bl_df_w, 
+           features = c("doy",
+                      "ActualCleanupHours",
+                      "ActualParticipantCount",
+                      "TrashWeight",
+                      "WaterbodyName",
+                      "Caps__lids",
+                      "Balloons",
+                      "Beverage_Bottles_Glass",
+                      "Beverage_Cans",
+                      "Batteries",
+                      "Beverage_Bottles_Plastic",
+                      "6-pack-holders",
+                      "Cigar_tips",
+                      "Bottle_Caps_Metal",
+                      "Bait_containers",
+                      "Car/car_parts",
+                      "Bottle_Caps_Plastic",
+                      "Cigarette_Lighters",
+                      "Appliances_refrigerators__washers__etc",
+                      "55-gal_drums"),
+           response="Cigarettes/cigarette_filters",
+           batch_size = 32,
+           num_epochs = num_epochs)
+}
+```
+
+```{r}
+cols <- feature_columns(
+  column_numeric("doy"),
+  column_numeric("ActualCleanupHours"),
+  column_numeric("ActualParticipantCount"),
+  column_numeric("TrashWeight"),
+  #column_categorical_with_identity("WaterbodyName",num_buckets = count(levels(bl_df_w$WaterbodyName))),
+  column_numeric("Caps__lids"),
+  column_numeric("Balloons"),
+  column_numeric("Beverage_Bottles_Glass"),
+  column_numeric("Beverage_Cans"),
+  column_numeric("Batteries"),
+  column_numeric("Beverage_Bottles_Plastic"),
+  column_numeric("6-pack-holders"),
+  column_numeric("Cigar_tips"),
+  column_numeric("Bottle_Caps_Metal"),
+  column_numeric("Bait_containers"),
+  column_numeric("Car/car_parts"),
+  column_numeric("Cigarette_Lighters"),
+  column_numeric("Appliances_refrigerators__washers__etc"),
+  column_numeric("55-gal_drums")
+)
+
+
+```
+
+
+```{r}
+model <- linear_regressor(feature_columns = cols)
+```
+
+
+```{r}
+indices <- sample(1:nrow(bl_df_w), size = 0.80 * nrow(bl_df_w))
+train <- bl_df_w[indices, ]
+test  <- bl_df_w[-indices, ]
+
+# train the model
+model %>% train(bl_df_w_input_fn(train, num_epochs = 15))
+```
+
+```{r}
+tr.model<-model %>% evaluate(bl_df_w_input_fn((train)))
+te.model<-model %>% evaluate(bl_df_w_input_fn(test))
+```
+
+```{r}
+obs <- bl_df_w[1:3, ]
+m.pred<-model %>% predict(bl_df_w_input_fn(obs))
+t.pred<-as.tibble(m.pred)
+m.pred.1<-as.data.frame(m.pred$predictions)
+p.out<-t(m.pred.1[1,])
+rownames(p.out)=NULL
+```
+
+```{r}
+saved_model_dir <- model_dir(model)
+```
+
+
+```{r}
+comp.df<-as.data.frame(cbind(p.out,bl_df_w$`Cigarettes/cigarette_filters`))
+ggplot(comp.df,aes(x=V2,y=`1`))+geom_point()+geom_abline(slope=1,intercept=0)+ 
+  stat_bin_hex()+geom_smooth()
+
+
+```
+

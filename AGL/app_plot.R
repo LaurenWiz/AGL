@@ -19,10 +19,13 @@ library(htmlTable)
 # Define UI for application that draws a histogram
 demo_data<-readRDS("tidy_debris.Rds")
 beach_names<-unique(demo_data$SiteName)
+state<-unique(demo_data$StateName)
 
 ui <- fluidPage(
   headerPanel("Demonstration Shiny Page"),
-  sidebarPanel(
+  conditionalPanel(
+    condition="",
+    selectizeInput("State",label=NULL, choices=state,options=list(create=TRUE)),
     selectInput("Beach_Name",label=NULL, choices=beach_names)),
   mainPanel(plotOutput("Plot"),tableOutput("Table"))
   )
@@ -37,7 +40,7 @@ server <- function(input, output) {
     
     ggplot(data,aes(x=Year,y=ActualParticipantCount),group)+
              geom_point()+
-             geom_smooth(method="lm")+
+             geom_smooth()+
              theme_classic()+
              labs(title=paste(input$Beach_Name),x="Year",y="Number of Participants")
     

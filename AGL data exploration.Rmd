@@ -19,8 +19,8 @@ bl_df<-read_excel("AAB.xlsx")
 
 
 #convert single Date column to Y, M ,D sow e cans ee if the time of year that cleanups #ahppen is important
-bl_df<- bl_df %>% 
-  separate(EventDate,into=c("Year","Month","Day"),sep="-")
+#bl_df<- bl_df %>% 
+#  separate(EventDate,into=c("Year","Month","Day"),sep="-")
 
 bl_df$TrashWeight<-as.numeric(gsub("Lbs","",as.character(bl_df$TrashWeight)))
 
@@ -31,7 +31,7 @@ bl_df[is.na(bl_df)]<-0
 
 ```{r Tidying the Data}
 site_df<-bl_df[,1:24] #Site specific data
-debris_df<-bl_df[,25:94] #Debris Data that eed to eb transformed into long form
+debris_df<-bl_df[,25:92] #Debris Data that eed to eb transformed into long form
 debris_df<-cbind(site_df$EventID,debris_df)
 debris_df<-rename(debris_df,"EventID"="site_df$EventID")
 
@@ -40,7 +40,7 @@ long<-debris_df %>%
 
 tidy_debris<-left_join(site_df,long,by="EventID")
 
-saveRDS(tidy_debris,file="tidy_debris.Rds")
+saveRDS(tidy_debris,file="tidy_debris.Rdata")
 ```
 
 ```{r Quick Map of Sites}
