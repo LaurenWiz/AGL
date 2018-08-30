@@ -18,7 +18,8 @@ library(htmlTable)
 #load("demo.rds")
 # Define UI for application that draws a histogram
 #demo_data<-readRDS("tidy_debris.Rds")
-demo_data<-readRDS("tidy_debris.Rdata")
+#demo_data<-readRDS("tidy_debris.Rdata")
+demo_data<-beachdata
 beach_names<-unique(demo_data$SiteName)
 state<-unique(demo_data$StateName)
 date_start<-min(demo_data$Year)

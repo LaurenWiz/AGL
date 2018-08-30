@@ -138,7 +138,8 @@ saved_model_dir <- model_dir(model)
 ```{r}
 comp.df<-as.data.frame(cbind(p.out,bl_df_w$`Cigarettes/cigarette_filters`))
 ggplot(comp.df,aes(x=V2,y=`1`))+geom_point()+geom_abline(slope=1,intercept=0)+ 
-  stat_bin_hex()+geom_smooth()
+  stat_bin_hex()+geom_smooth(method="lm")+scale_fill_gradient(low="lightblue",high="red")
+
 
 
 ```

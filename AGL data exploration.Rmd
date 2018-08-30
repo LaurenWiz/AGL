@@ -14,7 +14,7 @@ library(leaflet)
 library(htmlwidgets)
 ```
 
-```{r,warning=F, message=F}
+```{r,warning=F, message=F,include=FALSE}
 bl_df<-read_excel("AAB.xlsx")
 
 
@@ -30,8 +30,8 @@ bl_df[is.na(bl_df)]<-0
 
 
 ```{r Tidying the Data}
-site_df<-bl_df[,1:24] #Site specific data
-debris_df<-bl_df[,25:92] #Debris Data that eed to eb transformed into long form
+site_df<-bl_df[,1:22] #Site specific data
+debris_df<-bl_df[,23:92] #Debris Data that eed to eb transformed into long form
 debris_df<-cbind(site_df$EventID,debris_df)
 debris_df<-rename(debris_df,"EventID"="site_df$EventID")
 
@@ -39,6 +39,8 @@ long<-debris_df %>%
   gather(key=type,value=num,-EventID)
 
 tidy_debris<-left_join(site_df,long,by="EventID")
+tidy_debris[is.na(tidy_debris)]<-0
+tidy_debris$num<-as.numeric(tidy_debris$num)
 
 saveRDS(tidy_debris,file="tidy_debris.Rdata")
 ```
@@ -82,5 +84,47 @@ overview_map<-leaflet() %>%
 
 overview_map
 #saveWidget(overiew_map,file="index.html")
+```
+
+Let's normalize our count data by volunteer horu and beach size.  Essentially we are doing dimenionsal analysis and will end up with three new columns.  
+1) Count/personhour
+2) Count/mile (and maybe evtnually in metric units?)
+3) Count/personhour/mile
+```{r normalizing Data and Calculating Metrics}
+tidy_debris[is.na(tidy_debris)]<-0
+tidy_debris_calc<-tidy_debris %>% 
+  mutate(personHours=ActualParticipantCount*ActualCleanupHours) %>% 
+  mutate(numPersonHours=num/personHours) %>% 
+  mutate(numMile=num/DistanceCleanedValue) %>% 
+  mutate(numPersonHourMile=numPersonHours/DistanceCleanedValue) %>% 
+  mutate(weightPersonHours=TrashWeight/personHours) %>% 
+  mutate(weightPersonHourMile=weightPersonHours/DistanceCleanedValue)
+
+```
+
+Easy enough!  NOw we need to get sums of each type at each event AND we need to get the percentage of each category at each beach at each event.  This is a little mroe challenging but is not impossible!  In this first chunk we sum the counts
+
+```{r}
+tidy_event_summary<-tidy_debris_calc %>% 
+  group_by(EventID) %>% 
+  summarise(totalSum=sum(num),
+            totalNumPersonHours=sum(numPersonHours),
+            totalNumPersonHourMile=sum(numPersonHourMile),
+            totalNumMile=sum(numMile),
+            totalWeight=sum(TrashWeight),
+            totalWeightPersonHours=sum(weightPersonHours),
+            totalWeightPersonHourMile=sum(weightPersonHourMile)) %>% 
+  mutate(totalSum=ifelse(totalSum=="NA",0,totalSum),
+         totalNumPersonHours=ifelse(totalNumPersonHours=="NaN",NA,totalNumPersonHours),
+         totalNumPersonHourMile=ifelse(totalNumPersonHourMile=="NaN",NA,totalNumPersonHourMile),
+         totalNumMile=ifelse(totalNumMile=="NaN",NA,totalNumMile))
+
+tidy_event_summary[,3:8]<-signif(tidy_event_summary[,3:5],digits=3)
+#tidy_event_summary[,3:8]<-ifelse(tidy_event_summary[,3:8]=="Nan",NA,tidy_event_summary[,3:8])
+
+
+site_summary=left_join(site_df,tidy_event_summary,by="EventID")
+
+
 ```
 
