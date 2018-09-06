@@ -12,7 +12,7 @@ library(shiny)
 library(DT)
 library(shinydashboard)
 
-#tidy_debris<-
+tidy_debris<-readRDS("tidy_debris.Rdata")
 
 ui <- (
   fluidPage(
