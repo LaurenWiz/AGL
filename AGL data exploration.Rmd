@@ -12,6 +12,7 @@ library(tidyverse)
 library(ggplot2)
 library(leaflet)
 library(htmlwidgets)
+library(lubridate)
 ```
 
 ```{r,warning=F, message=F,include=FALSE}
@@ -28,10 +29,10 @@ bl_df[is.na(bl_df)]<-0
 #Convert NA to 0.
 ```
 
-
+Data were read directly into R and all NA values were converted to 0.  Additionally the "TrashWeight" column had some text in addition to numbers.  The next step will be to "tidy" the data so that each row in the dataset represents one observation of a type of litter.  The resulting dataset is rather tall (689920 observations), but this will allow us to select by type of litter for subsequent analyses and it is easy to swithc between tall and wide data formats in R.
 ```{r Tidying the Data}
 site_df<-bl_df[,1:22] #Site specific data
-debris_df<-bl_df[,23:92] #Debris Data that eed to eb transformed into long form
+debris_df<-bl_df[,23:92] #Debris Data that need to be transformed into long form
 debris_df<-cbind(site_df$EventID,debris_df)
 debris_df<-rename(debris_df,"EventID"="site_df$EventID")
 
@@ -41,6 +42,7 @@ long<-debris_df %>%
 tidy_debris<-left_join(site_df,long,by="EventID")
 tidy_debris[is.na(tidy_debris)]<-0
 tidy_debris$num<-as.numeric(tidy_debris$num)
+tidy_debris<-tidy_debris[tidy_debris$type!="SiteID",]
 
 saveRDS(tidy_debris,file="tidy_debris.Rdata")
 ```
@@ -82,7 +84,7 @@ overview_map<-leaflet() %>%
              )%>%
   addMiniMap()
 
-overview_map
+#overview_map
 #saveWidget(overiew_map,file="index.html")
 ```
 
@@ -93,7 +95,8 @@ Let's normalize our count data by volunteer horu and beach size.  Essentially we
 ```{r normalizing Data and Calculating Metrics}
 tidy_debris[is.na(tidy_debris)]<-0
 tidy_debris_calc<-tidy_debris %>% 
-  mutate(personHours=ActualParticipantCount*ActualCleanupHours) %>% 
+  group_by(EventID) %>% 
+  mutate(personHours=ActualParticipantCount*ActualCleanupHours) %>% #calculate person hours per event
   mutate(numPersonHours=num/personHours) %>% 
   mutate(numMile=num/DistanceCleanedValue) %>% 
   mutate(numPersonHourMile=numPersonHours/DistanceCleanedValue) %>% 
@@ -102,12 +105,12 @@ tidy_debris_calc<-tidy_debris %>%
 
 ```
 
-Easy enough!  NOw we need to get sums of each type at each event AND we need to get the percentage of each category at each beach at each event.  This is a little mroe challenging but is not impossible!  In this first chunk we sum the counts
+Easy enough!  Now we need to get sums of each type at each event AND we need to get the percentage of each category at each beach at each event.  This is a little mroe challenging but is not impossible!  In this first chunk we sum the counts.
 
 ```{r}
 tidy_event_summary<-tidy_debris_calc %>% 
   group_by(EventID) %>% 
-  summarise(totalSum=sum(num),
+  summarise(totalSum=sum(num), #total num items per event
             totalNumPersonHours=sum(numPersonHours),
             totalNumPersonHourMile=sum(numPersonHourMile),
             totalNumMile=sum(numMile),
@@ -118,12 +121,41 @@ tidy_event_summary<-tidy_debris_calc %>%
          totalNumPersonHours=ifelse(totalNumPersonHours=="NaN",NA,totalNumPersonHours),
          totalNumPersonHourMile=ifelse(totalNumPersonHourMile=="NaN",NA,totalNumPersonHourMile),
          totalNumMile=ifelse(totalNumMile=="NaN",NA,totalNumMile))
-
 tidy_event_summary[,3:8]<-signif(tidy_event_summary[,3:5],digits=3)
 #tidy_event_summary[,3:8]<-ifelse(tidy_event_summary[,3:8]=="Nan",NA,tidy_event_summary[,3:8])
 
 
 site_summary=left_join(site_df,tidy_event_summary,by="EventID")
+tidy_debris<-left_join(tidy_debris,tidy_event_summary,by="EventID")
+tidy_debris$EventDate<-ymd(tidy_debris$EventDate)
+tidy_debris<-tidy_debris %>% 
+  separate(EventDate,into=c("Year","Month","Date"),remove=F)
+
+check<-tidy_debris %>% 
+  filter(EventID==2215)
+
+```
+
+Now we need to calculate the percentage of each litter type for each cleanup event based ont he total number of objects collected and the total nuber of objects per unit effort (person hour).  We have data for lenght of beach cleaned and weight collected as well.
+
+```{r}
+tidy_debris<-tidy_debris %>% 
+  group_by(EventID,type) %>% 
+  mutate(percentAbundance=num/totalSum,
+         percentAbundancePersonHours=(num/totalSum)/totalNumPersonHours)
+```
+
+
+Summary Time!
+```{r}
+
+CHI<-tidy_debris %>%
+  filter(CityName=="Chicago",type=="Cigarettes/cigarette filters")
+
+
+
+ggplot(CHI,aes(x=EventDate,y=percentAbundance,size=totalNumPersonHours))+
+  stat_smooth(method="lm")+geom_point()
 
 
 ```
