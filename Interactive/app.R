@@ -8,26 +8,29 @@
 #
 
 library(shiny)
-library(DT)
 library(shiny)
+library(DT)
 library(shinydashboard)
 
-tidy_debris<-
+#tidy_debris<-
 
 ui <- (
   fluidPage(
     fluidRow(
-      column(4,wellPanel(
+      column(3,wellPanel(
         selectInput("StateName","State",choices=unique(tidy_debris$StateName))
       )),
-      column(4,wellPanel(
+      column(3,wellPanel(
         uiOutput("county")
       )),
-      column(4,wellPanel(
+      column(3,wellPanel(
         uiOutput("beach")
       )),
-      column(4,wellPanel(
-        checkboxGroupInput("col","Columns",choices=colnames(tidy_debris))))
+      column(3,wellPanel(
+        selectizeInput("col","Columns",choices=colnames(tidy_debris),multiple=TRUE)
+      ))
+     
+      
     ),
     mainPanel(
       DT::dataTableOutput("tab")
@@ -36,17 +39,23 @@ ui <- (
 )
 
 server <- function(input, output,session) {
-  output$county<-renderUI({
-   selectInput("county","County",choices=unique(tidy_debris[tidy_debris$StateName==input$StateName,"CountyName"]))
+    #updateSelectizeInput(session,"col",choices=colnames(tidy_debris))
+  
+    output$county<-renderUI({
+      selectInput("county","County",choices=unique(tidy_debris[tidy_debris$StateName==input$StateName,"CountyName"]))
+    })
+    
+    output$beach<-renderUI({
+      selectInput("beach","Beach",choices=unique(tidy_debris[tidy_debris$CountyName==input$county,"SiteName"]))
     })
   
-  output$beach<-renderUI({
-    selectInput("beach","Beach",choices=unique(tidy_debris[tidy_debris$CountyName==input$county,"SiteName"]))
-  })
 
-  output$tab<-DT::renderDataTable({
-    DT::datatable(tidy_debris[tidy_debris$SiteName==input$beach,input$col])
-  })
+    output$tab<-DT::renderDataTable({
+      DT::datatable(tidy_debris[tidy_debris$SiteName==input$beach,input$col],
+                    filter='top',
+                    extensions='Buttons',
+                    options = list(dom = 'Bfrtip',buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+    })
 }
 
 shinyApp(ui, server)
