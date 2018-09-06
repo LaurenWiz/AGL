@@ -1,7 +1,7 @@
 ---
 title: "Full Dataset Exploration"
 author: "Sam Dunn"
-date: "August 23, 2018"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
 ---
 
@@ -14,29 +14,33 @@ library(leaflet)
 library(htmlwidgets)
 library(lubridate)
 ```
+## Overview
+The Alliance for the Great Lakes has been collecting data from their beach cleanups since 2002 but has not used them extensively yet.  One possible path to take these data down is to look at the changes in litter types, namely cigarettes, on beaches over time.  Tobacco use has been decreasing in America and ordinances on public smoking are more frequently being passed across the country.  Are these ordinances having any effect?  What else might explain the changes in cigarette abundances on beaches?  Let's look at some preliminary analyses and get acquainted with the data.
 
-```{r,warning=F, message=F,include=FALSE}
+
+```{r,warning=F,error=F,message=F,warning=F}
 bl_df<-read_excel("AAB.xlsx")
 
-
-#convert single Date column to Y, M ,D sow e cans ee if the time of year that cleanups #ahppen is important
-#bl_df<- bl_df %>% 
-#  separate(EventDate,into=c("Year","Month","Day"),sep="-")
-
+#One column has both text and numbers in it...let's remove the text using regular expressions
 bl_df$TrashWeight<-as.numeric(gsub("Lbs","",as.character(bl_df$TrashWeight)))
 
 bl_df[is.na(bl_df)]<-0
 #Convert NA to 0.
 ```
+## Data Tidying
 
-Data were read directly into R and all NA values were converted to 0.  Additionally the "TrashWeight" column had some text in addition to numbers.  The next step will be to "tidy" the data so that each row in the dataset represents one observation of a type of litter.  The resulting dataset is rather tall (689920 observations), but this will allow us to select by type of litter for subsequent analyses and it is easy to swithc between tall and wide data formats in R.
-```{r Tidying the Data}
+Data were read directly into R and all NA values were converted to 0.  Additionally the "TrashWeight" column had some text in addition to numbers.  The next step will be to "tidy" the data so that each row in the dataset represents one observation of a type of litter.  The resulting dataset is rather tall (689920 observations), but this will allow us to select by type of litter for subsequent analyses and it is easy to swithc between tall and wide data formats in R. Tidy data are the industry standard for standalone dataframes and allow the user to leverage the full computational power of R when analyzing their data.  
+
+```{r First Pass at Tidying the Data, error=F,message=F,warning=F}
+#split dataframe into two parts.
+#1 Site specific data  that is the same for all cleanup events
+#2 Event data 
 site_df<-bl_df[,1:22] #Site specific data
 debris_df<-bl_df[,23:92] #Debris Data that need to be transformed into long form
 debris_df<-cbind(site_df$EventID,debris_df)
 debris_df<-rename(debris_df,"EventID"="site_df$EventID")
 
-long<-debris_df %>% 
+long<-debris_df %>% #longform data are key for tidying.  By making the type of litter into a factor column we can select specific types of litter later
   gather(key=type,value=num,-EventID)
 
 tidy_debris<-left_join(site_df,long,by="EventID")
@@ -44,10 +48,10 @@ tidy_debris[is.na(tidy_debris)]<-0
 tidy_debris$num<-as.numeric(tidy_debris$num)
 tidy_debris<-tidy_debris[tidy_debris$type!="SiteID",]
 
-saveRDS(tidy_debris,file="tidy_debris.Rdata")
-```
 
-```{r Quick Map of Sites}
+```
+Let's make a quick map of our beaches.  one of the best way to find issues with large datasets is to visualize them and look for obvious irregularities.  In our case there appear to be multiple names for the same beach in some areas.  This could either be an oversight or there may be multiple named beaches withina  very small area.  I've reached out to the Aliiance for clarification but haven't heard back yet. This map is interactive but minimalistic so far.
+```{r Quick Map of Sites, error=F,message=F,warning=F}
 basemap_df<-tidy_debris %>% 
   select(SiteName,LatitudeCenter,LongitudeCenter,WaterbodyName,EventID) %>% 
   unique()
@@ -84,19 +88,22 @@ overview_map<-leaflet() %>%
              )%>%
   addMiniMap()
 
-#overview_map
+overview_map
 #saveWidget(overiew_map,file="index.html")
 ```
 
-Let's normalize our count data by volunteer horu and beach size.  Essentially we are doing dimenionsal analysis and will end up with three new columns.  
-1) Count/personhour
-2) Count/mile (and maybe evtnually in metric units?)
-3) Count/personhour/mile
-```{r normalizing Data and Calculating Metrics}
+## Normalization and Calculations
+Let's normalize our count data by volunteer hours and beach size.  Essentially we are doing dimenionsal analysis and will end up with three new columns.  
+1. Count/personhour
+2. Count/mile (and maybe evtnually in metric units?)
+3. Count/personhour/mile
+
+We can use these normalized metrics to compare between beaches directly without havign to worry about sampling intensity.
+```{r normalizing Data and Calculating Metrics,error=F,message=F,warning=F}
 tidy_debris[is.na(tidy_debris)]<-0
 tidy_debris_calc<-tidy_debris %>% 
   group_by(EventID) %>% 
-  mutate(personHours=ActualParticipantCount*ActualCleanupHours) %>% #calculate person hours per event
+  mutate(personHours=ActualParticipantCount*ActualCleanupHours) %>% #calculate person hours per event  the "mutate" command creates a new column
   mutate(numPersonHours=num/personHours) %>% 
   mutate(numMile=num/DistanceCleanedValue) %>% 
   mutate(numPersonHourMile=numPersonHours/DistanceCleanedValue) %>% 
@@ -105,9 +112,11 @@ tidy_debris_calc<-tidy_debris %>%
 
 ```
 
-Easy enough!  Now we need to get sums of each type at each event AND we need to get the percentage of each category at each beach at each event.  This is a little mroe challenging but is not impossible!  In this first chunk we sum the counts.
+Easy enough!  Now we need to get sums of each type at each event AND we need to get the percentage of each category at each beach at each event.  This is a little more challenging because we want our calculations to be done on a event by event basis.  
 
-```{r}
+In this first chunk we sum the counts.
+
+```{r Summarise Calulated Metrics, error=F,message=F,warning=F}
 tidy_event_summary<-tidy_debris_calc %>% 
   group_by(EventID) %>% 
   summarise(totalSum=sum(num), #total num items per event
@@ -117,12 +126,12 @@ tidy_event_summary<-tidy_debris_calc %>%
             totalWeight=sum(TrashWeight),
             totalWeightPersonHours=sum(weightPersonHours),
             totalWeightPersonHourMile=sum(weightPersonHourMile)) %>% 
-  mutate(totalSum=ifelse(totalSum=="NA",0,totalSum),
+  mutate(totalSum=ifelse(totalSum=="NA",0,totalSum), #ifelse commands are useful for splitting a column logically or correcting for mis-entered data
          totalNumPersonHours=ifelse(totalNumPersonHours=="NaN",NA,totalNumPersonHours),
          totalNumPersonHourMile=ifelse(totalNumPersonHourMile=="NaN",NA,totalNumPersonHourMile),
          totalNumMile=ifelse(totalNumMile=="NaN",NA,totalNumMile))
-tidy_event_summary[,3:8]<-signif(tidy_event_summary[,3:5],digits=3)
-#tidy_event_summary[,3:8]<-ifelse(tidy_event_summary[,3:8]=="Nan",NA,tidy_event_summary[,3:8])
+tidy_event_summary[,3:8]<-signif(tidy_event_summary[,3:5],digits=3) #set sig figs
+
 
 
 site_summary=left_join(site_df,tidy_event_summary,by="EventID")
@@ -132,31 +141,78 @@ tidy_debris<-tidy_debris %>%
   separate(EventDate,into=c("Year","Month","Date"),remove=F)
 
 check<-tidy_debris %>% 
-  filter(EventID==2215)
+  filter(EventID==2215) #I picked a beach at random to visually inspect for errors.  Looks ok!
+
 
 ```
 
-Now we need to calculate the percentage of each litter type for each cleanup event based ont he total number of objects collected and the total nuber of objects per unit effort (person hour).  We have data for lenght of beach cleaned and weight collected as well.
+Now we need to calculate the percentage of each litter type for each cleanup event based on the total number of objects collected and the total nuber of objects per unit effort (person hour).  This is computaionally more expensive becayuse we are deaing with nested data.  However the following code is in a **vectorized** format which is MUCH faster than using a loop.
 
-```{r}
+```{r Calculate Percent Abundance and Normalize by Effort}
 tidy_debris<-tidy_debris %>% 
   group_by(EventID,type) %>% 
-  mutate(percentAbundance=num/totalSum,
-         percentAbundancePersonHours=(num/totalSum)/totalNumPersonHours)
+  mutate(percentAbundance=num/totalSum, #straightforward but not accoutnign for effort
+         abundancePersonhours=(num/totalNumPersonHours)) #essentially this is a rate of litter pickup
+
+saveRDS(tidy_debris,file="tidy_debris.Rdata") #I saved the cleaned data as a standalone R data file.  This is usable by any R user and I will make it available to you all online!
+
 ```
 
+## Analysis
+Okay, let's try and reproduce Tony's work that looked at the effect of the 2008 Chicago smoking ban on cigarette beach litter.  We will need to do a couple of things.
 
-Summary Time!
-```{r}
+1. We need to pick other cities to compare against that don't have smoking bans. 
+2. We will need to create a new factor (pre/post) to let us compare pre and post ban abundances in a tidy way
+
+From a first look it seems that while smoking rates have been declining in Chicago, the rate of cigarette butt appearance on ebaches is unaffected by the ban.  There are several other contributing factors not yet adressed here:
+
+1. Legacy litter...how much of this litter is new?
+2. Ban has an effect bu that effect is not greater than demographic(presumably) drivers.
+3. Non-resident litter deposition.  If tourists are unaware of ordinances and aren't represented in local demographic, their contributions will not be explainable by the data here.  I will look into tourist numbers perhaps?
+4. Other smoking cessation efforts...what if the effect we see is due to some other ongoign anti-smoking effort?
+
+```{r Chicago, error=F,message=F,warning=F}
 
 CHI<-tidy_debris %>%
-  filter(CityName=="Chicago",type=="Cigarettes/cigarette filters")
+  filter(CityName=="Chicago",type=="Cigarettes/cigarette filters")%>% 
+  mutate(ban=ifelse(Year>2008,"Ban","No_Ban")) #selecting only chicago data on cigarettes and creating a new factor for pre and post bans
 
 
 
-ggplot(CHI,aes(x=EventDate,y=percentAbundance,size=totalNumPersonHours))+
-  stat_smooth(method="lm")+geom_point()
+ggplot(CHI,aes(x=EventDate,y=percentAbundance,color=ban,group=Year))+
+  geom_boxplot()+
+  geom_smooth(data=CHI,aes(x=EventDate,y=percentAbundance,group=ban),
+              method="lm")+
+  geom_smooth(data=CHI,aes(x=EventDate,y=percentAbundance),
+              method="lm",inherit.aes = F)+
+  theme_classic()+
+  labs(y="Cigarette Share of Total Litter",x="Date",title="Chicago Beaches")
 
 
 ```
+
+We need another city to compare against...how about Cleveland for now?
+
+Cleveland's public park smoking ban went into effect on July 31st 2018, so the data we have, going back to 2008, represents 10 years of public smoking in parks!  As we can see there is a flat temporal trend so we can infer that this is a good estimate of public smoking habits.  Now that being said other factors, namely demographics, play into smoking rates.
+
+Other things to note.  The total share of beach litter in Cleveland that is from cigarettes is much lower than in Chicago.  
+```{r Cleveland}
+
+cleveland_df<-tidy_debris %>% 
+  filter(CityName=="Cleveland",type=="Cigarettes/cigarette filters")
+
+ggplot(cleveland_df,aes(x=EventDate,y=percentAbundance,group=Year))+
+  geom_boxplot()+
+  geom_smooth(data=cleveland_df,aes(x=EventDate,y=percentAbundance),
+              method="lm",inherit.aes = F)+
+  theme_classic()+
+  labs(x="Date",y="Cigarette Share of Total Litter",title="Cleveland")
+```
+
+## Next Steps
+I am looking into whether there is county by county data available for public smoking bans.  If there is I can replicate the analysis above and evaluate the efficacy of bans.  Demographic data fromt he census and other publicly available datasets will augment this and provide the basis for training a model to answer the following question:  Will a public smoking ban decrease cigarette litter on beaches?
+
+The AGL has made it clear they are happy to have ANYONE use these data.  To supoprt this I will publish this dataset on my github page and provide all of you with a link to it.  To facilitate data extraction I have built a web tool which I will show you now!  The web version works well on my local computer, but I am having troubles getting ti to work on a web server.  However I hope to have this resolved soon.
+
+
 
