@@ -215,4 +215,47 @@ I am looking into whether there is county by county data available for public sm
 The AGL has made it clear they are happy to have ANYONE use these data.  To supoprt this I will publish this dataset on my github page and provide all of you with a link to it.  To facilitate data extraction I have built a web tool which I will show you now!  The web version works well on my local computer, but I am having troubles getting ti to work on a web server.  However I hope to have this resolved soon.
 
 
+## Making Predictions
+
+
+```{r Feature Selection}
+library(mlbench)
+library(caret)
+library(MASS)
+library(leaps)
+library(caret)
+
+
+litter<-tidy_debris %>% 
+  select(EventID,type,num) %>% 
+  filter(!grepl("Entangled",type)&!grepl("Misc",type)) %>%
+  spread(type,num)
+corMatrix<-cor(litter[,2:60])
+high_cor<-findCorrelation(corMatrix)
+print(high_cor)
+
+
+
+fullModel<-lm(`Cigarettes/cigarette filters`~.,data=litter)
+stepModel<-stepAIC(fullModel,direction="back",
+                   trace=FALSE)
+summary(stepModel)
+
+models<-regsubsets(`Cigarettes/cigarette filters`~.,data=litter,nvmax=10,method="seqrep")
+summary(models)
+
+
+control<-trainControl(method="cv",number=10)
+model<-train(`Cigarettes/cigarette filters`~.,data=litter,method="leapSeq",
+             preProcess="scale",trControl=control, 
+                    tuneGrid = data.frame(nvmax = 1:5))
+importance<-varImp(model,scale=FALSE)
+
+model$results
+model$bestTune
+summary(model$finalModel)
+targets<-coef(model$finalModel,5)
+features<-names(targets)
+
+```
 
