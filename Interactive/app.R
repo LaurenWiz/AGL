@@ -11,39 +11,76 @@ library(shiny)
 library(DT)
 library(shiny)
 
+cols_to_display<-c("EventDate",
+        "Year",
+        "Month",
+        "Date",
+        "CityName",
+        "WaterbodyName",
+        "type",
+        "num",
+        "totalNumPersonHours",
+        "percentAbundance")
+
 
 ui <- (
   fluidPage(
-    fluidRow(
-      column(4,wellPanel(
+    titlePanel("Beach Litter Data Exploration"),
+    sidebarLayout(
+      sidebarPanel(
+      
         selectInput("StateName","State",choices=unique(tidy_debris$StateName))
-      )),
-      column(4,wellPanel(
+      ,
+      
         uiOutput("county")
-      )),
-      column(4,wellPanel(
+      ,
+      
         uiOutput("beach")
-      )),
-      column(4,wellPanel(
-        checkboxGroupInput("col","Columns",choices=colnames(tidy_debris))))
+      ,
+      
+        uiOutput("EventID")
     ),
-    mainPanel(
-      DT::dataTableOutput("tab")
+      mainPanel(
+        h1("Using this table"),
+        p("Use the inputs to select a State, Coutny, and Beach to get data from.",
+          "Lastly, select as many Event IDs as you want to pull up data from different dates.",
+          "The buttons above the table will export the visible selection to the format of your choice!"),
+        DT::dataTableOutput("tab")
       )
+    )
   )
 )
 
 server <- function(input, output,session) {
   output$county<-renderUI({
-   selectInput("county","County",choices=unique(tidy_debris[tidy_debris$StateName==input$StateName,"CountyName"]))
+   selectInput("county",
+               "County",
+               choices=unique(tidy_debris[tidy_debris$StateName==input$StateName,
+                                          "CountyName"]))
     })
   
   output$beach<-renderUI({
-    selectInput("beach","Beach",choices=unique(tidy_debris[tidy_debris$CountyName==input$county,"SiteName"]))
+    selectInput("beach",
+                "Beach",
+                choices=unique(tidy_debris[tidy_debris$CountyName==input$county,
+                                           "SiteName"]))
+  })
+  
+  output$EventID<-renderUI({
+    selectInput("EventID",
+                "EventID",
+                choices=unique(tidy_debris[tidy_debris$SiteName==input$beach,
+                                           "EventID"]),
+                multiple=TRUE)
   })
 
   output$tab<-DT::renderDataTable({
-    DT::datatable(tidy_debris[tidy_debris$SiteName==input$beach,input$col])
+    DT::datatable(tidy_debris[tidy_debris$EventID==input$EventID,cols_to_display],
+                  filter='top',
+                  extensions=c("Buttons",'Scroller'),
+                  options = list(dom = 'Bfrtip',
+                                 buttons = c('copy', 'csv', 'excel', 'print'))
+                  )
   })
 }
 
