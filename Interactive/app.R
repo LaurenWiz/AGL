@@ -10,6 +10,8 @@
 library(shiny)
 library(DT)
 library(shiny)
+tidy_debris<-readRDS("tidy_debris.Rdata")
+
 
 cols_to_display<-c("EventDate",
         "Year",
@@ -42,9 +44,9 @@ ui <- (
     ),
       mainPanel(
         h1("Using this table"),
-        p("Use the inputs to select a State, Coutny, and Beach to get data from.",
-          "Lastly, select as many Event IDs as you want to pull up data from different dates.",
-          "The buttons above the table will export the visible selection to the format of your choice!"),
+        p("Use the inputs to select a State, County, and Beach to get data from.",
+          "Lastly, select as many Event IDs as you want to pull up data from different dates.  You can use the slider in the EventDate column to refine dates as you want.",
+          "The buttons above the table will export all the data to the format of your choice!  This table was produced by Sam Dunn, PhD for use by Loyola Students.  Please direct any issues to samuel.t.dunn@gmail.com"),
         DT::dataTableOutput("tab")
       )
     )
@@ -74,12 +76,12 @@ server <- function(input, output,session) {
                 multiple=TRUE)
   })
 
-  output$tab<-DT::renderDataTable({
+  output$tab<-DT::renderDataTable(server=FALSE,{
     DT::datatable(tidy_debris[tidy_debris$EventID==input$EventID,cols_to_display],
                   filter='top',
                   extensions=c("Buttons",'Scroller'),
                   options = list(dom = 'Bfrtip',
-                                 buttons = c('copy', 'csv', 'excel', 'print'))
+                                 buttons = c(  'csv','excel'))
                   )
   })
 }

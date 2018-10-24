@@ -23,6 +23,7 @@ library(hexbin)
 ```{r}
 bl_df<-readRDS("tidy_debris.Rdata")
 
+
 bl_df$num<-as.numeric(bl_df$num)
 
 bl_df_w<-bl_df %>% 
