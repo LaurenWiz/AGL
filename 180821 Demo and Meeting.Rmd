@@ -7,7 +7,48 @@ bibliography: Demo_bib.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+#knitr::opts_chunk$set(echo = TRUE)
+##Loading Packages
+# ipak function: install and load multiple R packages.
+# checks to see if packages are installed. Install them if they are not, then load them into the R session.
+ipak <- function(pkg){
+    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+    if (length(new.pkg)) 
+        install.packages(new.pkg, dependencies = TRUE, repos='http://cran.us.r-project.org')
+    sapply(pkg, require, character.only = TRUE)
+}
+# Package list.  Contains all needed packages as a this writing.  To update, simply add new package name to the list!
+packages <- c("ggplot2", 
+              "plyr", 
+              "reshape2", 
+              "RColorBrewer", 
+              "scales", 
+              "grid",
+              "VennDiagram",
+              "bibtex",
+              "vegan",
+              "RAM",
+              "tidyr",
+              "Rmisc",
+              "glue",
+              "reshape",
+              "reshape2",
+              "lemon",
+              "gapminder",
+              "magrittr",
+              "dplyr",
+              "ggpubr",
+              "gridExtra",
+              "patternplot",
+              "tibble",
+              "gplots",
+              "broom",
+              "data.table",
+              "devtools",
+              "xlsx",
+              "knitr")
+ipak(packages)
+
 ```
 
 ## Overview
